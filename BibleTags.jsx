@@ -1,44 +1,72 @@
 // Преобразование тегов ссылок на сноски в форматированный текст
-function BibleReferenceConverter() {
+// var mDoc = app.activeDocument
 
-    var found, myStory, myStory, myRefIndex, myFirstIndex, myLastIndex;
-    var myOutFirstIndex, myOutLastIndex;
+function main() {
+  var doc = app.activeDocument;
+  if (!doc) return;
 
-    var myOpenTag = "<ref::>"
-    var myCloseTag = "<::ref>"
-	var myFindWhatStr = myOpenTag + "([\\*\\w]+?)" + myCloseTag
-    var openTagLenth = myOpenTag.length; // 
-    var closeTagLenth = myCloseTag.length; // 
-
-    app.changeGrepPreferences = NothingEnum.nothing;
-	app.findGrepPreferences = NothingEnum.nothing;
-	app.findChangeGrepOptions.includeFootnotes = true;
-	app.findChangeGrepOptions.includeHiddenLayers = false;
-	app.findChangeGrepOptions.includeLockedLayersForFind = false;
-	app.findChangeGrepOptions.includeLockedStoriesForFind = false;
-	app.findChangeGrepOptions.includeMasterPages = false;
-
-	app.findGrepPreferences.findWhat = myFindWhatStr;
-	var myFoundItems = app.findGrep()
-
-    // обработка найденного
-    for (var i = myFoundItems.length - 1; i >= 0; i--) {
-        found = myFoundItems[i];
-        found.appliedCharacterStyle = "BibleReference";
-
-        myStory = found.parentStory
-		// myRefIndex = found.insertionPoints.item(0).index
-		myOutFirstIndex = found.insertionPoints.item(0).index;
-		myFirstIndex = found.insertionPoints.item(0).index + openTagLenth;
-		myOutLastIndex = found.insertionPoints.item(-1).index;
-		myLastIndex = found.insertionPoints.item(-1).index - closeTagLenth;
-		myStory.insertionPoints.itemByRange(myFirstIndex, myLastIndex).select();
-		app.copy();
-		myStory.insertionPoints.itemByRange(myOutFirstIndex, myOutLastIndex).select();
-        app.paste();
-        
-    }
-
+  var storiesLength = doc.stories.length;
+  // Обрабатываем все истории документа
+  for (var s = 0; s < storiesLength; s++) {
+    var story = doc.stories[s];
+    BibleReferenceConverter(story);
+  }
 }
 
-BibleReferenceConverter()
+function BibleReferenceConverter(myStory) {
+  var found, myRefIndex, myFirstIndex, myLastIndex;
+  var myOutFirstIndex, myOutLastIndex;
+
+  var myOpenRefTag = "<ref::>"; // начало ссылки на сноски
+  var myCloseRefTag = "<::ref>"; // конец ссылки на сноски
+  var myOpenTag = "<FootnoteStart>"; // начало тега сноски
+  var myCloseTag = "</FootnoteEnd>"; // конец тега сноски
+  var myFindWhatStr = myOpenTag + "([\\*\\w\\W]+?)" + myCloseTag;
+  //   var openTagLenth = myOpenRefTag.length; //
+  //   var closeTagLenth = myCloseRefTag.length; //
+
+  var regex = /<ref::>(.+?)<::ref>/;
+
+  resetFindGrep();
+  app.findGrepPreferences.findWhat = myFindWhatStr;
+  var myFoundItems = myStory.findGrep();
+
+  // обработка найденного
+  for (var i = myFoundItems.length - 1; i >= 0; i--) {
+    found = myFoundItems[i];
+    var refText = regex.exec(found.contents)[1];
+    var refLength = refText.length;
+
+    myStory = found.parentStory;
+    myRefInsertionPoint = found.insertionPoints.lastItem();
+    myRefInsertionPoint.contents = refText;
+    myRefIndex = myRefInsertionPoint.index;
+    myLastIndex = myRefInsertionPoint.index + refLength;
+
+    var selectedRef;
+    try {
+      selectedRef = myStory.insertionPoints.itemByRange(
+        myRefIndex,
+        myLastIndex
+      );
+      selectedRef.appliedCharacterStyle =
+        app.activeDocument.characterStyles.item("ddd");
+    } catch (e) {
+      alert(e);
+    }
+  }
+}
+
+function resetFindGrep() {
+  app.changeGrepPreferences = NothingEnum.nothing;
+  app.findGrepPreferences = NothingEnum.nothing;
+  app.findChangeGrepOptions.includeFootnotes = true;
+  app.findChangeGrepOptions.includeHiddenLayers = false;
+  app.findChangeGrepOptions.includeLockedLayersForFind = false;
+  app.findChangeGrepOptions.includeLockedStoriesForFind = false;
+  app.findChangeGrepOptions.includeMasterPages = false;
+}
+
+// BibleReferenceConverter();
+
+main();
